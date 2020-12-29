@@ -1,0 +1,94 @@
+uint16_t x = 0;                                         // global variable x declared to store ADC 
+uint16_t flag = 0;                                      // flag to print x once each time ADC converts
+uint16_t nofsamples = 0;                                // number of samples
+uint16_t counter = 0;                                   // counter that is incremented each time Timer0 overflows
+
+// -------- Functions --------- //
+//static inline void initTimer0(void) {
+  /*Write code to initialize Timer 0*/
+  //TCCR0A = 0; 
+  //TCCR0B |= 0b00000101;                                 // Set the prescaler for a division by 1024
+  //TIMSK0 |= (1 << TOIE0);                               // Enable Timer0 overflow interrupts
+  //TCNT0 = 0;                   
+//}
+
+static inline void initTimer(void) {
+  /*Write code to initialize Timer 1*/
+  TCCR1B = 0b00000101;                                  // setting prescaler of 1024 for timer1
+  TIMSK1 |= (1 << TOIE1);                               // enabling timer1 overflow interrupt
+  TCNT1 = 65497;                                        // timer overflows after 0.0025 second (400 HZ) to acquire ECG frequencies up till 200Hz
+}
+
+static inline void initIOPorts(void) {
+  /*Write code to initialize the GPIO ports (pins) that you need*/
+  DDRB |= 0b00010000;                                   // sets pin 4 as output 
+}
+
+static inline void initADC(void) {
+  /*Write code to initialize the ADC*/
+  ADMUX |= (1 << REFS0);                                // reference voltage
+  ADCSRA |= (1 << ADPS0) | (1 << ADPS1);                // ADC prescaler of 8
+  ADCSRB |= (1 << ADTS2) | (1 << ADTS1);                // auto triggered source = timer1 overflow
+  ADCSRA |= (1 << ADATE);                               // enable auto triggered conversion
+  ADCSRA |= (1 << ADEN);                                // enable ADC conversion
+  ADCSRA |= (1 << ADIE);                                // enable ADC interrupt
+}
+
+// ------ Interrupt Service Routine ------ //
+//ISR(TIMER0_OVF_vect) {
+  /*Interrupt service routine for Timer0 Overflow*/
+  /*Count until one second and check sampling frequency*/
+  //counter++;                                            // increase by 1 each time timer0 overflows 
+  //if (counter >= 61)                                    // counts up to 1 second
+  //{
+   //counter = 0;                                        // reset counter after 1 second 
+    //Serial.println(nofsamples);                         // to check sampling frequency after each second, number of samples per second 
+    //if (nofsamples == 400)                              // if number of samples is 400, means sampling frequency is 400Hz
+    //{
+     // Serial.println("Correct");
+    //}
+    //else 
+    //{
+    //  Serial.println("False"); 
+    //}
+    //nofsamples = 0;                                     // reset nofsamples after 1 second 
+  //}
+//}
+  
+ISR(TIMER1_OVF_vect) {
+  /*This is the interrupt service routine for Timer 1 Overflow*/ 
+  //ADCSRA |= (1 << ADSC); // start ADC conversion, only needed for tinkercad which has no auto triggering 
+  TCNT1 =  65497;                                       // reload timer1
+}
+
+ISR(ADC_vect) {
+  /*This is the interrupt service routine for the ADC
+   * It is executed when the ADC completes a conversion.
+   */
+  x = ADC;                                              // assign global variable x to store ADC value
+  flag = 1;                                             // allows the main routine to print x only once, each time a conversion is completed
+  nofsamples++;                                         // after each conversion takes place, number of samples increases by 1
+  
+}
+
+/*You don't need to modify anything in the code below*/
+int main(void) {
+  
+  noInterrupts();           
+  initIOPorts();
+  initTimer();
+  //initTimer0(); 
+  initADC();
+  interrupts();
+  Serial.begin(9600); 
+  
+  while(1) 
+  {
+    if (flag == 1)                                       // when a conversion is completed, x will be printed once 
+    {
+      Serial.println(x); 
+      flag = 0;                                          // resets flag after x has been printed  
+    }
+  }
+  return 0;                            /* This line is never reached */
+}
